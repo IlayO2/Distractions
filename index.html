@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<title>סימולציית נהיגה – הסחות דעת מצחיקות</title>
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    direction:rtl;
+    overflow:hidden;
+    background:black;
+    color:white;
+}
+
+#player{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    z-index:-1;
+}
+
+#overlay{
+    position:absolute;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.45);
+}
+
+header{
+    text-align:center;
+    padding:20px;
+    font-size:24px;
+    background:rgba(0,0,0,0.6);
+}
+
+#startScreen,#resultScreen{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:rgba(15,23,42,0.95);
+    padding:40px;
+    border-radius:15px;
+    text-align:center;
+}
+
+button{
+    padding:12px 25px;
+    margin-top:15px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:15px;
+}
+
+#stats{
+    position:absolute;
+    top:90px;
+    right:20px;
+    background:rgba(15,23,42,0.9);
+    padding:15px;
+    border-radius:10px;
+    display:none;
+}
+
+#eventBox{
+    position:absolute;
+    bottom:50%;
+    left:50%;
+    transform:translate(-50%,50%);
+    background:rgba(255,255,255,0.95);
+    padding:20px;
+    border-radius:15px;
+    display:none;
+    text-align:center;
+    width:320px;
+    color:black;
+    font-weight:bold;
+    animation: popIn 0.5s;
+}
+
+@keyframes popIn{
+    0% {transform:translate(-50%,60%) scale(0.5); opacity:0;}
+    100% {transform:translate(-50%,50%) scale(1); opacity:1;}
+}
+
+.shake{
+    animation: shakeAnim 0.3s;
+}
+
+@keyframes shakeAnim{
+    0% {transform: translate(-50%,50%) translateX(0);}
+    25% {transform: translate(-50%,50%) translateX(-5px);}
+    50% {transform: translate(-50%,50%) translateX(5px);}
+    75% {transform: translate(-50%,50%) translateX(-5px);}
+    100% {transform: translate(-50%,50%) translateX(0);}
+}
+</style>
+</head>
+<body>
+
+<div id="player"></div>
+<div id="overlay"></div>
+
+<header>סימולציית נהיגה – הסחות דעת </header>
+
+<div id="startScreen">
+    <h2>סימולציית נהיגה רשמית</h2>
+    <p>משך הסימולציה: 4:30 דקות</p>
+      <p>מגישים: עילאי אוחנה, יהלי אחדות, גיא אביטל</p>
+    <button onclick="startGame()">התחל סימולציה</button>
+</div>
+
+<div id="stats">
+ריכוז: <span id="focus">100</span>%<br>
+זמן נותר: <span id="time">04:30</span><br>
+טעויות: <span id="mistakes">0</span>
+</div>
+
+<div id="eventBox">
+<p id="eventText"></p>
+<button onclick="ignoreEvent()">להתעלם</button>
+<button onclick="engageEvent()">להגיב</button>
+<p id="funResponse" style="margin-top:10px;font-size:14px;color:blue;"></p>
+</div>
+
+<div id="resultScreen" style="display:none;"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let player;
+let focus = 100;
+let totalTime = 270;
+let mistakes = 0;
+let gameInterval;
+let eventInterval;
+let eventActive = false;
+
+const events = [
+{txt:"📱 סירי מדברת* יוסי מתקשר ושואל שאלות ואתה מאבד ריכוז – מה תעשה? תנתק או לא?! ", ignore:"הצלחת להתעלם, אבל תזכור: החיים לא על סלולרי!", engage:"אחי, מה אכפת לך מימתקשר עכשיו? הפסקת לנהוג 😂"},
+{txt:"💬 קיבלת הודעה מיוסי הוא שואל אם באלך לרדת לאילת?  – מה עושה?? תבחר!", ignore:"וואטסאפ? שמרת על הראש, מלך!", engage:"תשובה לא טובה! עכשיו איבדת ריכוז 😎"},
+{txt:"🎵 ?מוזיקה חזקה וצלילים של עומר אדם  – מה תעשה !", ignore:"שקט פנימי, ממש כמו מדיטציה על הכביש", engage:"רוק אנד רול בראש! קצת יותר מדי חזק 🤘"},
+{txt:"👥 ?יהלי אחדות לידך מראה סרטון – מה תעשה !", ignore:"תפסת את עצמך, לא נכנסת לסרטון 🙏", engage:"צפייה קצרה, אבל היי, צחקת קצת 😂"},
+{txt:"🔔 התראה מערכת – תבחר נכון!  !", ignore:"התעלמת מהשטות הזאת, תמשיך לנהוג כמו מקצוען", engage:"הגבת מיד! קצת מדי חריף 😅"}
+];
+
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+        videoId: 'o9VQZ8RFS7U',
+        playerVars: {autoplay:0, controls:0, rel:0, loop:1, playlist:'o9VQZ8RFS7U', modestbranding:1}
+    });
+}
+
+function formatTime(seconds){
+    let m = Math.floor(seconds/60);
+    let s = seconds%60;
+    if(s<10) s="0"+s;
+    if(m<10) m="0"+m;
+    return m+":"+s;
+}
+
+function startGame(){
+    document.getElementById("startScreen").style.display="none";
+    document.getElementById("stats").style.display="block";
+    player.playVideo();
+    gameInterval = setInterval(updateTime,1000);
+    eventInterval = setInterval(triggerEvent,25000); // עכשיו 25 שניות בין הסחות
+}
+
+function updateStats(){
+    document.getElementById("focus").innerText = focus;
+    document.getElementById("time").innerText = formatTime(totalTime);
+    document.getElementById("mistakes").innerText = mistakes;
+}
+
+function updateTime(){
+    if(totalTime<=0){ endGame(); return; }
+    totalTime--;
+    updateStats();
+}
+
+function triggerEvent(){
+    if(eventActive || totalTime<=0) return;
+    eventActive = true;
+    player.pauseVideo();
+    
+    let e = events[Math.floor(Math.random()*events.length)];
+    let box = document.getElementById("eventBox");
+    box.classList.add("shake");
+    box.style.display="block";
+    document.getElementById("eventText").innerText = e.txt;
+    document.getElementById("funResponse").innerText = ""; // איפוס תגובה
+    box.dataset.ignore = e.ignore;
+    box.dataset.engage = e.engage;
+}
+
+function ignoreEvent(){
+    focus += 2;
+    if(focus>100) focus=100;
+    let box = document.getElementById("eventBox");
+    document.getElementById("funResponse").innerText = box.dataset.ignore;
+    setTimeout(closeEvent,1500); // אפשר לשים קצת דיליי להראות תגובה
+}
+
+function engageEvent(){
+    focus -= 15;
+    mistakes++;
+    let box = document.getElementById("eventBox");
+    document.getElementById("funResponse").innerText = box.dataset.engage;
+    setTimeout(closeEvent,1500);
+}
+
+function closeEvent(){
+    eventActive=false;
+    let box = document.getElementById("eventBox");
+    box.style.display="none";
+    box.classList.remove("shake");
+    player.playVideo();
+    updateStats();
+}
+
+function endGame(){
+    clearInterval(gameInterval);
+    clearInterval(eventInterval);
+    player.pauseVideo();
+    document.getElementById("eventBox").style.display="none";
+    document.getElementById("resultScreen").style.display="block";
+
+    let rating="נהיגה מסוכנת";
+    if(focus>85) rating="נהיגה בטוחה מאוד";
+    else if(focus>60) rating="נהיגה סבירה";
+
+    document.getElementById("resultScreen").innerHTML=
+    "<h2>דוח נהג מסכם</h2>"+
+    "רמת ריכוז סופית: "+focus+"%<br>"+
+    "מספר טעויות: "+mistakes+"<br>"+
+    "הערכת בטיחות: "+rating;
+}
+
+updateStats();
+</script>
+
+</body>
+</html>
